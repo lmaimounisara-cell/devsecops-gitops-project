@@ -32,3 +32,6 @@ components:
 # - components/container-images-tag
 # - components/container-images-tag-suffix
 - components/container-images-registry
+
+transformers:
+- ghcr-pull-secret-transformer.yaml
