@@ -17,7 +17,7 @@ jobs:
       # -------------------
       # Checkout source
       # -------------------
-      - name: Checkout code
+      - name: Checkout source
         uses: actions/checkout@v4
 
       # -------------------
@@ -41,11 +41,17 @@ jobs:
       # -------------------
       - name: Build Image
         run: |
+          if [ "${{ inputs.service }}" = "cartservice" ]; then
+            BUILD_CONTEXT="./src/cartservice/src"
+          else
+            BUILD_CONTEXT="./src/${{ inputs.service }}"
+          fi
+
           docker build \
             --cache-from=type=gha \
             --cache-to=type=gha,mode=max \
             -t $IMAGE_NAME \
-            ./src/${{ inputs.service }}
+            "$BUILD_CONTEXT"
 
       # -------------------
       # Security Scan (before push)
@@ -57,10 +63,9 @@ jobs:
           image-ref: ${{ env.IMAGE_NAME }}
           severity: HIGH,CRITICAL
           exit-code: 0
-          vuln-type: os,library
 
       # -------------------
-      # Push image (only if scan passes)
+      # Push image to GHCR
       # -------------------
       - name: Push Image
         run: |
