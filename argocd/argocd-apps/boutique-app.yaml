@@ -1,13 +1,15 @@
+
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: boutique-app
+  name: aegisops
   namespace: argocd
+
 spec:
   project: default
 
   source:
-    repoURL: https://github.com/laxmikantagiri/Production-Grade_GitOps-Driven_Microservices-Demo.git
+    repoURL: https://github.com/lmaimounisara-cell/devsecops-gitops-project.git
     targetRevision: HEAD
     path: .
 
@@ -20,4 +22,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-    - CreateNamespace=true
+      - CreateNamespace=true
