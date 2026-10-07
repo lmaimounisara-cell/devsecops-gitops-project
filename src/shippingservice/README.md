@@ -21,3 +21,4 @@ docker build ./
 ```
 go test .
 ```
+<!-- CI trigger 2026-10-07 -->
