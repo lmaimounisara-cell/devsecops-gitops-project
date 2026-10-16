@@ -40,17 +40,25 @@ jobs:
       # Build Docker image (cached)
       # -------------------
       - name: Build Image
+        shell: bash
         run: |
           if [ "${{ inputs.service }}" = "cartservice" ]; then
-            BUILD_CONTEXT="./src/cartservice/src"
+            DOCKERFILE="./src/cartservice/src/Dockerfile"
+            BUILD_CONTEXT="./src/cartservice"
           else
+            DOCKERFILE="./src/${{ inputs.service }}/Dockerfile"
             BUILD_CONTEXT="./src/${{ inputs.service }}"
           fi
 
+          echo "Building service: ${{ inputs.service }}"
+          echo "Using Dockerfile: $DOCKERFILE"
+          echo "Using build context: $BUILD_CONTEXT"
+
           docker build \
+            --file "$DOCKERFILE" \
             --cache-from=type=gha \
             --cache-to=type=gha,mode=max \
-            -t $IMAGE_NAME \
+            -t "$IMAGE_NAME" \
             "$BUILD_CONTEXT"
 
       # -------------------
@@ -65,8 +73,8 @@ jobs:
           exit-code: 0
 
       # -------------------
-      # Push image to GHCR
+      # Push Image to GHCR
       # -------------------
       - name: Push Image
         run: |
-          docker push $IMAGE_NAME
+          docker push "$IMAGE_NAME"
