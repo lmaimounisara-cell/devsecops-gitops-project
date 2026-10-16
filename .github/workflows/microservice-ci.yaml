@@ -1,4 +1,3 @@
-```yaml
 name: Microservice CI
 
 on:
@@ -16,9 +15,6 @@ jobs:
       contents: read
       packages: write
 
-    env:
-      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/microservices-demo/${{ inputs.service }}:sha-${{ github.sha }}
-
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -35,18 +31,21 @@ jobs:
 
       - name: Build Image
         shell: bash
+        env:
+          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/microservices-demo/${{ inputs.service }}:sha-${{ github.sha }}
+          SERVICE: ${{ inputs.service }}
         run: |
           set -euo pipefail
 
-          if [ "${{ inputs.service }}" = "cartservice" ]; then
+          if [ "$SERVICE" = "cartservice" ]; then
             DOCKERFILE="./src/cartservice/src/Dockerfile"
-            BUILD_CONTEXT="./src/cartservice"
+            BUILD_CONTEXT="./src/cartservice/src"
           else
-            DOCKERFILE="./src/${{ inputs.service }}/Dockerfile"
-            BUILD_CONTEXT="./src/${{ inputs.service }}"
+            DOCKERFILE="./src/$SERVICE/Dockerfile"
+            BUILD_CONTEXT="./src/$SERVICE"
           fi
 
-          echo "Building service: ${{ inputs.service }}"
+          echo "Building service: $SERVICE"
           echo "Using Dockerfile: $DOCKERFILE"
           echo "Using build context: $BUILD_CONTEXT"
 
@@ -71,13 +70,14 @@ jobs:
         uses: aquasecurity/trivy-action@v0.20.0
         with:
           scan-type: image
-          image-ref: ${{ env.IMAGE_NAME }}
+          image-ref: ghcr.io/${{ github.repository_owner }}/microservices-demo/${{ inputs.service }}:sha-${{ github.sha }}
           severity: HIGH,CRITICAL
           exit-code: 0
 
       - name: Push Image
         shell: bash
+        env:
+          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/microservices-demo/${{ inputs.service }}:sha-${{ github.sha }}
         run: |
           set -euo pipefail
           docker push "$IMAGE_NAME"
-```
