@@ -1,3 +1,4 @@
+```yaml
 name: Microservice CI
 
 on:
@@ -10,6 +11,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
     env:
       IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/microservices-demo/${{ inputs.service }}:sha-${{ github.sha }}
 
@@ -42,9 +48,11 @@ jobs:
       - name: Build Image
         shell: bash
         run: |
+          set -euo pipefail
+
           if [ "${{ inputs.service }}" = "cartservice" ]; then
             DOCKERFILE="./src/cartservice/src/Dockerfile"
-            BUILD_CONTEXT="./src/cartservice"
+            BUILD_CONTEXT="./src/cartservice/src"
           else
             DOCKERFILE="./src/${{ inputs.service }}/Dockerfile"
             BUILD_CONTEXT="./src/${{ inputs.service }}"
@@ -54,11 +62,21 @@ jobs:
           echo "Using Dockerfile: $DOCKERFILE"
           echo "Using build context: $BUILD_CONTEXT"
 
+          if [ ! -f "$DOCKERFILE" ]; then
+            echo "::error::Dockerfile not found: $DOCKERFILE"
+            exit 1
+          fi
+
+          if [ ! -d "$BUILD_CONTEXT" ]; then
+            echo "::error::Build context not found: $BUILD_CONTEXT"
+            exit 1
+          fi
+
           docker build \
             --file "$DOCKERFILE" \
             --cache-from=type=gha \
             --cache-to=type=gha,mode=max \
-            -t "$IMAGE_NAME" \
+            --tag "$IMAGE_NAME" \
             "$BUILD_CONTEXT"
 
       # -------------------
@@ -76,5 +94,8 @@ jobs:
       # Push Image to GHCR
       # -------------------
       - name: Push Image
+        shell: bash
         run: |
+          set -euo pipefail
           docker push "$IMAGE_NAME"
+```
