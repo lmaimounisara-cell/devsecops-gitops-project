@@ -37,7 +37,6 @@ jobs:
           echo "Detected services: $SERVICES"
           echo "services=$SERVICES" >> $GITHUB_OUTPUT
 
-
   # --------------------------------------------------
   # Job 2: Call reusable workflow (matrix per service)
   # --------------------------------------------------
@@ -50,7 +49,6 @@ jobs:
       matrix:
         service: ${{ fromJson(needs.detect-changes.outputs.services) }}
 
-    # 🚨 IMPORTANT:
     # Reusable workflows are called at JOB level
     uses: ./.github/workflows/microservice-ci.yaml
 
