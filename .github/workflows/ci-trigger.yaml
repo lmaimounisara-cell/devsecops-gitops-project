@@ -35,6 +35,17 @@ jobs:
           AFTER="${{ github.sha }}"
 
           if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            ALL_SERVICES=true
+          else
+            CHANGED_FILES=$(git diff --name-only "$BEFORE" "$AFTER")
+            if printf '%s\n' "$CHANGED_FILES" | grep -qE '^\.github/workflows/(ci-trigger\.yaml|microservice-ci\.yaml)$'; then
+              ALL_SERVICES=true
+            else
+              ALL_SERVICES=false
+            fi
+          fi
+
+          if [ "$ALL_SERVICES" = true ]; then
             SERVICES=$(find src -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -u | jq -R -s -c 'split("\n")[:-1]')
           else
             SERVICES=$(git diff --name-only "$BEFORE" "$AFTER" \
