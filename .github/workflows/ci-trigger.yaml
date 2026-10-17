@@ -1,83 +1,65 @@
-name: Microservice CI
+name: Microservices Trigger CI
 
 on:
-  workflow_call:
-    inputs:
-      service:
-        required: true
-        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - ".github/workflows/ci-trigger.yaml"
+      - ".github/workflows/microservice-ci.yaml"
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  build:
+  detect-changes:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      packages: write
+    outputs:
+      services: ${{ steps.changed.outputs.services }}
 
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      - name: Build Image
+      - name: Detect changed services
+        id: changed
         shell: bash
-        env:
-          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/microservices-demo/${{ inputs.service }}:sha-${{ github.sha }}
-          SERVICE: ${{ inputs.service }}
         run: |
           set -euo pipefail
 
-          if [ "$SERVICE" = "cartservice" ]; then
-            DOCKERFILE="./src/cartservice/src/Dockerfile"
-            BUILD_CONTEXT="./src/cartservice/src"
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            SERVICES=$(find src -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -u | jq -R -s -c 'split("\n")[:-1]')
           else
-            DOCKERFILE="./src/$SERVICE/Dockerfile"
-            BUILD_CONTEXT="./src/$SERVICE"
+            SERVICES=$(git diff --name-only "$BEFORE" "$AFTER" \
+              | grep '^src/' \
+              | cut -d'/' -f2 \
+              | sort -u \
+              | jq -R -s -c 'split("\n")[:-1]' || true)
+
+            if [ -z "$SERVICES" ]; then
+              SERVICES='[]'
+            fi
           fi
 
-          echo "Building service: $SERVICE"
-          echo "Using Dockerfile: $DOCKERFILE"
-          echo "Using build context: $BUILD_CONTEXT"
+          echo "Detected services: $SERVICES"
+          echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
 
-          if [ ! -f "$DOCKERFILE" ]; then
-            echo "::error::Dockerfile not found: $DOCKERFILE"
-            exit 1
-          fi
+  build-and-push:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.services != '[]'
 
-          if [ ! -d "$BUILD_CONTEXT" ]; then
-            echo "::error::Build context not found: $BUILD_CONTEXT"
-            exit 1
-          fi
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-changes.outputs.services) }}
 
-          docker build \
-            --file "$DOCKERFILE" \
-            --cache-from=type=gha \
-            --cache-to=type=gha,mode=max \
-            --tag "$IMAGE_NAME" \
-            "$BUILD_CONTEXT"
-
-      - name: Run Trivy Scan
-        uses: aquasecurity/trivy-action@v0.20.0
-        with:
-          scan-type: image
-          image-ref: ghcr.io/${{ github.repository_owner }}/microservices-demo/${{ inputs.service }}:sha-${{ github.sha }}
-          severity: HIGH,CRITICAL
-          exit-code: 0
-
-      - name: Push Image
-        shell: bash
-        env:
-          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/microservices-demo/${{ inputs.service }}:sha-${{ github.sha }}
-        run: |
-          set -euo pipefail
-          docker push "$IMAGE_NAME"
+    uses: ./.github/workflows/microservice-ci.yaml
+    with:
+      service: ${{ matrix.service }}
